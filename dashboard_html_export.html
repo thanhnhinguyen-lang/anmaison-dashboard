@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📊 Marketing Dashboard – ANmaison</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.2/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #f9fafb; }
+    button { font-family: inherit; cursor: pointer; }
+    input  { font-family: inherit; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+
+const { useState, useMemo } = React;
+const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+        CartesianGrid, PieChart, Pie, Cell } = Recharts;
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+const parseFormat = n => { const m=(n||"").match(/^\[([^\]]+)\]/); return m?m[1]:"Unknown"; };
+const parseAdName = n => (n||"").replace(/^\[[^\]]+\]\s*/,"");
+const fmt  = v => { if(v===null||v===undefined) return "—"; if(typeof v==="string") return v||"—"; const x=Number(v); if(isNaN(x)) return String(v); return x.toLocaleString("en-US"); };
+const fmtP = v => { const x=Number(v); if(v===null||v===undefined||isNaN(x)) return "—"; return x.toFixed(2)+"%"; };
+
+const PIE_COLORS = ["#1877f2","#42b72a","#f02849","#ff9500","#8b5cf6","#06b6d4"];
+const PCT_COLS   = new Set(["ctr","engagement_rate","view_rate","trueview_rate","interaction_rate","video_p25","video_p50","video_p75","video_p100"]);
+const TEXT_COLS  = new Set(["name","status","range","gender"]);
+
+const COL_LABELS = {
+  name:"Tên",status:"Status",impressions:"Impressions",reach:"Reach",frequency:"Freq.",
+  link_clicks:"Clicks",ctr:"CTR",thruplays:"ThruPlays",view_rate:"VR",
+  post_engagements:"Post Eng.",reactions:"Reactions",comments:"Comments",saves:"Saves",shares:"Shares",
+  engagement:"Engagement",engagement_rate:"ER",view_6s:"6s Views",
+  paid_follows:"Paid Follows",paid_likes:"Paid Likes",paid_comments:"Paid Comments",
+  paid_shares:"Paid Shares",paid_profile_visits:"Profile Visits",
+  trueview_views:"TrueView",trueview_rate:"TrueView Rate",
+  interactions:"Interactions",interaction_rate:"Int. Rate",
+  video_p25:"Played 25%",video_p100:"Played 100%",views:"Views",
+};
+
+const TYPE_COLS = {
+  meta_reach:      ["impressions","reach","frequency","link_clicks","ctr","thruplays","post_engagements","reactions","comments","saves","shares"],
+  meta_engagement: ["impressions","reach","frequency","engagement","engagement_rate","link_clicks","ctr","reactions","comments","saves","shares"],
+  meta_thruplay:   ["impressions","reach","frequency","thruplays","view_rate","link_clicks","ctr","reactions","comments","saves","shares"],
+  youtube:         ["impressions","trueview_views","trueview_rate","link_clicks","ctr","interactions","interaction_rate","engagement","engagement_rate"],
+  tiktok:          ["impressions","reach","frequency","view_6s","view_rate","link_clicks","ctr","paid_follows","paid_likes","paid_comments","paid_shares","paid_profile_visits"],
+};
+
+const PLAT_CFG = {
+  meta:    { label:"Meta Ads",    color:"#1877f2", icon:"📘" },
+  youtube: { label:"YouTube Ads", color:"#ff0000", icon:"▶️" },
+  tiktok:  { label:"TikTok Ads",  color:"#010101", icon:"🎵" },
+};
+const META_TYPES = {
+  reach:      { label:"Reach",      kpi:"reach",      kpiLabel:"Reach (Total)", color:"#1877f2", icon:"📡" },
+  engagement: { label:"Engagement", kpi:"engagement", kpiLabel:"Engagement",    color:"#42b72a", icon:"💬" },
+  thruplay:   { label:"ThruPlay",   kpi:"thruplays",  kpiLabel:"ThruPlays",     color:"#f02849", icon:"▶️" },
+};
+const SECTIONS_META = ["overview","ta","creative","age","gender","takeaway"];
+const SECTIONS_YT   = ["overview","ad_name","topic","age","gender","takeaway"];
+const SECTIONS_TT   = ["overview","ta","creative","age","gender","takeaway"];
+const SEC_LABEL = {
+  overview:"Overview", ta:"Ad Groups (TA)", creative:"Creative",
+  age:"Age", gender:"Gender", takeaway:"Key Takeaway",
+  ad_name:"Ad Name", topic:"Topic",
+};
+
+// ─── DATA ─────────────────────────────────────────────────────────────────────
+const DATA = {
+  meta_reach: {
+    account_name:"Seven AM – ANmaison", date_range:"2026-05-01 → 2026-05-31",
+    summary:{ impressions:457856,reach:415234,frequency:1.56,link_clicks:960,ctr:0.21,thruplays:12400,post_engagements:2840,reactions:116,comments:28,saves:5,shares:47 },
+    campaigns:[{ name:"ANmaison_Reach_May_4,444,444_260603101",status:"ACTIVE",impressions:457856,reach:415234,frequency:1.56,link_clicks:960,ctr:0.21,thruplays:12400,post_engagements:2840,reactions:116,comments:28,saves:5,shares:47 }],
+    ad_sets:[
+      { name:"End-users",         impressions:269337,reach:247374,frequency:1.45,link_clicks:565,ctr:0.21,thruplays:7302,post_engagements:1673,reactions:68,comments:16,saves:3,shares:27 },
+      { name:"Longterm-Investor", impressions:140793,reach:128654,frequency:1.15,link_clicks:299,ctr:0.21,thruplays:3814,post_engagements:874, reactions:36,comments:8, saves:1,shares:15 },
+      { name:"Expats",            impressions:47726, reach:39206, frequency:1.13,link_clicks:96, ctr:0.20,thruplays:1284,post_engagements:293, reactions:12,comments:4, saves:1,shares:5  },
+    ],
+    creatives:[
+      { name:"[Video] FRASERS PROPERTY, ĐƯA CHUẨN MỰC QUỐC TẾ VÀO HÀNH TRÌNH KIẾN TẠO TẠI VIỆT NAM",        impressions:189432,reach:172284,frequency:1.10,link_clicks:455,ctr:0.24,thruplays:6235,post_engagements:1352,reactions:58,comments:14,saves:2,shares:22 },
+      { name:"[Album] CEO FRASERS PROPERTY VIETNAM TRỰC TIẾP KHẢO SÁT VÀ CHỈ ĐẠO CHIẾN LƯỢC TẠI NHÀ MẪU ANMAISON", impressions:148276,reach:134532,frequency:1.10,link_clicks:281,ctr:0.19,thruplays:3710,post_engagements:946,reactions:36,comments:8,saves:2,shares:16 },
+      { name:"[Album] MỘT KHOẢNG THỞ XANH GIỮA TRUNG TÂM PHỐ CẢNG",                                         impressions:120148,reach:108418,frequency:1.11,link_clicks:224,ctr:0.19,thruplays:2455,post_engagements:542,reactions:22,comments:6,saves:1,shares:9  },
+    ],
+    age:[
+      { range:"35-44",impressions:49079, reach:44622  },
+      { range:"45-54",impressions:179151,reach:163027 },
+      { range:"55-64",impressions:105350,reach:95868  },
+      { range:"65+",  impressions:55125, reach:50139  },
+    ],
+    gender:[
+      { gender:"Female",impressions:113979,reach:103720 },
+      { gender:"Male",  impressions:340978,reach:310290 },
+    ],
+    key_takeaways:["Tổng Reach (sum) 415,234 — nhóm 45-54 đóng góp 39.2% impressions, đúng định hướng target.","Frequency 1.56x — reach mở rộng lành mạnh, chưa bão hòa.","Video FRASERS PROPERTY đạt ThruPlays cao nhất (6,235) và CTR 0.24%.","Nam giới chiếm 74.5% impressions — nhất quán với định hướng BĐS cao cấp."],
+  },
+
+  meta_engagement: {
+    account_name:"Seven AM – ANmaison", date_range:"2026-05-01 → 2026-05-31",
+    summary:{ impressions:127849,reach:116341,frequency:1.57,engagement:9464,engagement_rate:7.40,link_clicks:132,ctr:7.40,reactions:828,comments:4,saves:33,shares:312 },
+    campaigns:[{ name:"ANmaison_Engagement_May_44,444_260603101",status:"ACTIVE",impressions:127849,reach:116341,frequency:1.57,engagement:9464,engagement_rate:7.40,link_clicks:132,ctr:7.40,reactions:828,comments:4,saves:33,shares:312 }],
+    ad_sets:[
+      { name:"End-users",        impressions:68014,reach:61933,frequency:1.32,engagement:4443,engagement_rate:6.53,link_clicks:71,ctr:6.53,reactions:441,comments:2,saves:18,shares:166 },
+      { name:"Longterm-Investor",impressions:36401,reach:33125,frequency:1.30,engagement:2481,engagement_rate:6.82,link_clicks:38,ctr:6.82,reactions:248,comments:1,saves:10,shares:93  },
+      { name:"Expats",           impressions:14497,reach:13192,frequency:1.23,engagement:1057,engagement_rate:7.29,link_clicks:15,ctr:7.29,reactions:104,comments:0,saves:4, shares:39  },
+      { name:"Retargeting",      impressions:3391, reach:3085, frequency:1.10,engagement:621, engagement_rate:18.31,link_clicks:8, ctr:18.31,reactions:62, comments:1,saves:2, shares:23  },
+      { name:"Industry_Port",    impressions:5546, reach:5006, frequency:1.11,engagement:862, engagement_rate:15.54,link_clicks:11,ctr:15.54,reactions:85, comments:1,saves:3, shares:32  },
+    ],
+    creatives:[
+      { name:"[Reel] BEFORE & AFTER — Không gian sống ANmaison",   impressions:52814,reach:48060,frequency:1.10,engagement:4312,engagement_rate:8.16,link_clicks:55,ctr:8.16,reactions:378,comments:2,saves:15,shares:142 },
+      { name:"[Album] Tips trang trí nội thất cao cấp từ ANmaison", impressions:41372,reach:37648,frequency:1.10,engagement:2964,engagement_rate:7.16,link_clicks:38,ctr:7.16,reactions:259,comments:1,saves:10,shares:97  },
+      { name:"[Image] Ưu đãi đặc biệt tháng 5 — ANmaison",         impressions:33663,reach:30633,frequency:1.10,engagement:2188,engagement_rate:6.50,link_clicks:28,ctr:6.50,reactions:191,comments:1,saves:8, shares:72  },
+    ],
+    age:[
+      { range:"35-44",impressions:36627,reach:33330,engagement:2965 },
+      { range:"45-54",impressions:14640,reach:13322,engagement:1157 },
+      { range:"55-64",impressions:4388, reach:3993, engagement:294  },
+      { range:"65+",  impressions:4150, reach:3777, engagement:295  },
+    ],
+    gender:[
+      { gender:"Female",impressions:25792, reach:23470,engagement:1873 },
+      { gender:"Male",  impressions:100753,reach:91685,engagement:7489 },
+    ],
+    key_takeaways:["CTR 7.40% — Retargeting (18.3%) và Industry_Port (15.5%) hiệu quả đặc biệt.","Reel Before&After: engagement cao nhất (4,312) và ER 8.16%.","Nhóm 35-44: ER 8.10% — audience chất lượng nhất.","Shares 312 — content lan truyền tốt trong target audience."],
+  },
+
+  meta_thruplay: {
+    account_name:"Seven AM – ANmaison", date_range:"2026-05-01 → 2026-05-31",
+    summary:{ impressions:130191,reach:119375,frequency:1.38,thruplays:56901,view_rate:43.71,link_clicks:1427,ctr:1.20,reactions:342,comments:18,saves:156,shares:89 },
+    campaigns:[{ name:"ANmaison_Thruplay_May_260603101",status:"ACTIVE",impressions:130191,reach:119375,frequency:1.38,thruplays:56901,view_rate:43.71,link_clicks:1427,ctr:1.20,reactions:342,comments:18,saves:156,shares:89 }],
+    ad_sets:[
+      { name:"End-users",        impressions:66490,reach:60968,frequency:1.09,thruplays:30273,view_rate:45.5,link_clicks:729,ctr:1.25,reactions:175,comments:9, saves:80,shares:46 },
+      { name:"Expats",           impressions:30880,reach:28308,frequency:1.09,thruplays:12499,view_rate:40.5,link_clicks:338,ctr:1.18,reactions:81, comments:4, saves:37,shares:21 },
+      { name:"Longterm-Investor",impressions:23180,reach:21252,frequency:1.09,thruplays:9759, view_rate:42.1,link_clicks:253,ctr:1.09,reactions:61, comments:3, saves:28,shares:16 },
+      { name:"Industry_Port",    impressions:7246, reach:6641, frequency:1.09,thruplays:3332, view_rate:46.0,link_clicks:79, ctr:1.13,reactions:19, comments:1, saves:9, shares:5  },
+      { name:"Retargeting",      impressions:2395, reach:2196, frequency:1.09,thruplays:1038, view_rate:43.3,link_clicks:28, ctr:1.29,reactions:6,  comments:1, saves:2, shares:1  },
+    ],
+    creatives:[
+      { name:"[Video] FRASERS PROPERTY — Hero Brand Film 30s", impressions:58586,reach:53727,frequency:1.09,thruplays:27843,view_rate:47.5,link_clicks:642,ctr:1.28,reactions:154,comments:8,saves:70,shares:40 },
+      { name:"[Video] ANmaison Product Tour 15s",               impressions:42362,reach:38832,frequency:1.09,thruplays:17379,view_rate:41.0,link_clicks:469,ctr:1.18,reactions:111,comments:6,saves:51,shares:29 },
+      { name:"[Video] ANmaison Bumper 6s",                      impressions:29243,reach:26816,frequency:1.09,thruplays:11679,view_rate:39.9,link_clicks:316,ctr:1.10,reactions:77, comments:4,saves:35,shares:20 },
+    ],
+    age:[
+      { range:"35-44",impressions:13416,reach:12301,thruplays:5087  },
+      { range:"45-54",impressions:37488,reach:34373,thruplays:15799 },
+      { range:"55-64",impressions:40069,reach:36743,thruplays:17584 },
+      { range:"65+",  impressions:29546,reach:27086,thruplays:15247 },
+    ],
+    gender:[
+      { gender:"Female",impressions:79994,reach:73354,thruplays:36422 },
+      { gender:"Male",  impressions:49710,reach:45571,thruplays:20296 },
+    ],
+    key_takeaways:["ThruPlay rate 43.7% — gấp đôi benchmark ngành 20-25%.","Hero Brand Film 30s: view rate 47.5% — cao nhất, nên ưu tiên budget.","Nhóm 55-64 và 65+ đóng góp 57.7% ThruPlays — content resonates mạnh.","Saves 156 — audience lưu video để xem lại, brand interest cao."],
+  },
+
+  youtube: {
+    account_name:"ANmaison – Google Ads 595-107-1525", date_range:"2026-05-01 → 2026-05-31",
+    summary:{ impressions:105715,trueview_views:1152,trueview_rate:1.09,link_clicks:4,ctr:0.004,interactions:2403,interaction_rate:2.27,engagement:2403,engagement_rate:2.27,video_p25:73.23,video_p50:69.64,video_p75:68.44,video_p100:67.73 },
+    campaigns:[{ name:"ANmaison_Youtube Trueview_May_260603101",status:"PAUSED",impressions:105715,trueview_views:1152,trueview_rate:1.09,link_clicks:4,ctr:0.004,interactions:2403,interaction_rate:2.27,engagement:2403,engagement_rate:2.27 }],
+    ads:[{ name:"[Video] FRASERS PROPERTY, ĐƯA CHUẨN MỰC QUỐC TẾ VÀO HÀNH TRÌNH KIẾN TẠO TẠI VIỆT NAM", impressions:105715,trueview_views:1152,trueview_rate:1.09,link_clicks:4,ctr:0.004,interactions:2403,interaction_rate:2.27,engagement:2403,engagement_rate:2.27 }],
+    topics:[
+      { name:"Online Communities > Social Networks",        impressions:18818,interactions:379,interaction_rate:2.01,link_clicks:0,ctr:0.000,video_p25:70.44,video_p100:64.26 },
+      { name:"Business & Industrial",                       impressions:17487,interactions:449,interaction_rate:2.57,link_clicks:1,ctr:0.006,video_p25:65.03,video_p100:59.50 },
+      { name:"People & Society > Religion & Belief",        impressions:16668,interactions:445,interaction_rate:2.67,link_clicks:1,ctr:0.006,video_p25:66.97,video_p100:61.52 },
+      { name:"Shopping & Retailers > Luxury Goods",         impressions:11198,interactions:203,interaction_rate:1.81,link_clicks:0,ctr:0.000,video_p25:80.15,video_p100:74.98 },
+      { name:"Law & Government > Legal",                    impressions:9880, interactions:232,interaction_rate:2.35,link_clicks:0,ctr:0.000,video_p25:76.50,video_p100:70.94 },
+      { name:"People & Society > Social Sciences",          impressions:9163, interactions:186,interaction_rate:2.03,link_clicks:1,ctr:0.011,video_p25:79.68,video_p100:74.20 },
+      { name:"Autos & Vehicles > Vehicle Shopping",         impressions:8300, interactions:167,interaction_rate:2.01,link_clicks:1,ctr:0.012,video_p25:81.59,video_p100:75.97 },
+      { name:"Finance",                                     impressions:6253, interactions:126,interaction_rate:2.02,link_clicks:0,ctr:0.000,video_p25:78.70,video_p100:74.36 },
+      { name:"Law & Government > Government",               impressions:3952, interactions:107,interaction_rate:2.71,link_clicks:0,ctr:0.000,video_p25:77.71,video_p100:73.22 },
+      { name:"Real Estate",                                 impressions:2015, interactions:65, interaction_rate:3.23,link_clicks:0,ctr:0.000,video_p25:77.76,video_p100:72.68 },
+      { name:"People & Society > Social Issues & Advocacy", impressions:1075, interactions:28, interaction_rate:2.60,link_clicks:0,ctr:0.000,video_p25:66.21,video_p100:61.23 },
+      { name:"Travel & Transportation > Air Travel",        impressions:705,  interactions:11, interaction_rate:1.56,link_clicks:0,ctr:0.000,video_p25:66.43,video_p100:59.79 },
+      { name:"Online Communities > Virtual Worlds",         impressions:158,  interactions:4,  interaction_rate:2.53,link_clicks:0,ctr:0.000,video_p25:80.39,video_p100:71.24 },
+      { name:"Autos & Vehicles > Commercial Vehicles",      impressions:34,   interactions:1,  interaction_rate:2.94,link_clicks:0,ctr:0.000,video_p25:82.76,video_p100:65.52 },
+      { name:"Autos & Vehicles > Vehicle Shows",            impressions:9,    interactions:0,  interaction_rate:0.00,link_clicks:0,ctr:0.000,video_p25:80.00,video_p100:80.00 },
+    ],
+    age:[
+      { range:"35-44",impressions:56208,views:33107,view_rate:58.9 },
+      { range:"45-54",impressions:24055,views:17501,view_rate:72.8 },
+      { range:"55-64",impressions:13673,views:11383,view_rate:83.3 },
+      { range:"65+",  impressions:11453,views:9692, view_rate:84.6 },
+    ],
+    gender:[
+      { gender:"Male",  impressions:64272,views:46661,view_rate:72.6 },
+      { gender:"Female",impressions:41444,views:25032,view_rate:60.4 },
+    ],
+    key_takeaways:["TrueView views 1,152 / 105,715 impressions — TrueView rate 1.09% thấp, cần review targeting và creative hook.","Video completion rate rất cao: 25%→73.2%, 100%→67.7% — audience xem hết nhưng ít click Play.","Real Estate topic: ER cao nhất 3.23% — nên tăng bid cho topic này.","Campaign PAUSED — cần review bid strategy trước khi restart."],
+  },
+
+  tiktok: {
+    account_name:"ANmaison – TikTok 7643807731505397780", date_range:"2026-05-26 → 2026-05-31 (5 ngày)",
+    summary:{ impressions:23268,reach:16199,frequency:1.44,view_6s:4597,view_rate:19.76,link_clicks:53,ctr:0.23,paid_follows:5,paid_likes:30,paid_comments:0,paid_shares:1,paid_profile_visits:34 },
+    campaigns:[{ name:"ANmaison_Video View_May_",status:"ACTIVE",impressions:23268,reach:16199,frequency:1.44,view_6s:4597,view_rate:19.76,link_clicks:53,ctr:0.23,paid_follows:5,paid_likes:30,paid_comments:0,paid_shares:1,paid_profile_visits:34 }],
+    ad_groups:[
+      { name:"End-users",        impressions:17247,reach:12495,frequency:1.38,view_6s:3732,view_rate:21.6,link_clicks:40,ctr:0.23,paid_follows:4,paid_likes:26,paid_comments:0,paid_shares:1,paid_profile_visits:24 },
+      { name:"Longterm-Investor",impressions:2016, reach:1911, frequency:1.05,view_6s:325, view_rate:16.1,link_clicks:4, ctr:0.20,paid_follows:0,paid_likes:3, paid_comments:0,paid_shares:0,paid_profile_visits:3  },
+      { name:"Expat",            impressions:3703, reach:3144, frequency:1.18,view_6s:479, view_rate:12.9,link_clicks:7, ctr:0.19,paid_follows:0,paid_likes:0, paid_comments:0,paid_shares:0,paid_profile_visits:7  },
+      { name:"Retargeting",      impressions:303,  reach:255,  frequency:1.19,view_6s:62,  view_rate:20.5,link_clicks:2, ctr:0.66,paid_follows:1,paid_likes:1, paid_comments:0,paid_shares:0,paid_profile_visits:0  },
+    ],
+    creatives:[
+      { name:"[Video] ANmaison Home Tour 30s",                  impressions:12480,reach:8747,frequency:1.43,view_6s:2586,view_rate:20.7,link_clicks:31,ctr:0.25,paid_follows:3,paid_likes:17,paid_comments:0,paid_shares:1,paid_profile_visits:19 },
+      { name:"[Video] ANmaison Product Reel — Sofa Collection", impressions:10788,reach:7558,frequency:1.43,view_6s:2011,view_rate:18.6,link_clicks:22,ctr:0.20,paid_follows:2,paid_likes:13,paid_comments:0,paid_shares:0,paid_profile_visits:15 },
+    ],
+    age:[
+      { range:"35-44",impressions:2814, reach:2145,view_6s:383  },
+      { range:"45-54",impressions:5886, reach:4255,view_6s:1090 },
+      { range:"55+",  impressions:14485,reach:9655,view_6s:3113 },
+    ],
+    gender:[
+      { gender:"Male",  impressions:16179,reach:11414,view_6s:2959 },
+      { gender:"Female",impressions:7054, reach:4888, view_6s:1623 },
+    ],
+    key_takeaways:["Mới chạy 5 ngày — cần thêm thời gian để đánh giá toàn diện.","AdGroup 55+ có 6s view rate cao hơn (21.5% vs 16.9%) — audience cao tuổi engage tốt hơn.","Nhóm 55+ chiếm 62.3% impressions và 67.7% View 6s.","Retargeting: CTR 0.66% — gấp 3x End-users, nên scale up ngân sách."],
+  },
+};
+
+// ─── COMPONENTS ───────────────────────────────────────────────────────────────
+function KpiCard({ label, value, color, big }) {
+  return (
+    <div style={{background:"#fff",borderRadius:10,padding:"12px 14px",flex:1,minWidth:big?150:105,borderTop:`3px solid ${color}`,boxShadow:"0 1px 3px rgba(0,0,0,0.07)"}}>
+      <div style={{fontSize:9,color:"#6b7280",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:4}}>{label}</div>
+      <div style={{fontSize:big?22:16,fontWeight:800,color:big?color:"#111827"}}>{value}</div>
+    </div>
+  );
+}
+
+function DataTable({ rows=[], cols=[] }) {
+  const fv = (col, val) => {
+    if (val===null||val===undefined||val==="") return "—";
+    if (col==="status") return <span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:99,background:(val==="ACTIVE"||val==="ENABLED")?"#d1fae5":"#fef9c3",color:(val==="ACTIVE"||val==="ENABLED")?"#065f46":"#92400e"}}>{val}</span>;
+    if (PCT_COLS.has(col)) return fmtP(val);
+    if (col==="frequency") return isNaN(Number(val))?"—":Number(val).toFixed(2);
+    if (TEXT_COLS.has(col)) return String(val);
+    return fmt(val);
+  };
+  if (!rows.length) return <div style={{color:"#9ca3af",fontSize:12,padding:"20px 0",textAlign:"center"}}>Chưa có data</div>;
+  return (
+    <div style={{overflowX:"auto"}}>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+        <thead><tr style={{borderBottom:"2px solid #f3f4f6"}}>
+          {cols.map(c=><th key={c} style={{padding:"5px 8px",textAlign:TEXT_COLS.has(c)?"left":"right",color:"#6b7280",fontWeight:700,fontSize:9,textTransform:"uppercase",whiteSpace:"nowrap"}}>{COL_LABELS[c]||c}</th>)}
+        </tr></thead>
+        <tbody>{rows.map((row,i)=>(
+          <tr key={i} style={{borderBottom:"1px solid #f9fafb",background:i%2===0?"#fff":"#fafafa"}}>
+            {cols.map(c=><td key={c} style={{padding:"7px 8px",textAlign:TEXT_COLS.has(c)?"left":"right",fontWeight:c==="name"?600:400,color:c==="name"?"#111827":"#374151",whiteSpace:"nowrap"}}>{fv(c,row[c])}</td>)}
+          </tr>
+        ))}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function DemoChart({ d, platform, metaType, dimKey }) {
+  const rows = (d?.[dimKey]||[]).map(r=>({...r,_lbl:r.range||r.gender||""}));
+  const total = rows.reduce((s,r)=>s+Number(r.impressions||0),0);
+  const rowsP = rows.map(r=>({...r,_pct:total>0?Number((r.impressions/total*100).toFixed(1)):0}));
+  const mk = platform==="tiktok"?"view_6s":platform==="youtube"?"views":metaType==="reach"?"impressions":metaType==="engagement"?"engagement":"thruplays";
+  const ml = platform==="tiktok"?"View 6s":platform==="youtube"?"Views":metaType==="reach"?"Impressions":metaType==="engagement"?"Engagement":"ThruPlays";
+  const pc = PLAT_CFG[platform]?.color||"#6366f1";
+  return (
+    <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+      <div style={{flex:2,minWidth:260,background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 3px rgba(0,0,0,0.07)"}}>
+        <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>{dimKey==="age"?"Age":"Gender"} — {ml}</div>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={rowsP} margin={{top:4,right:8,left:0,bottom:0}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
+            <XAxis dataKey="_lbl" tick={{fontSize:11,fill:"#6b7280"}} tickLine={false}/>
+            <YAxis tick={{fontSize:10,fill:"#9ca3af"}} tickLine={false} axisLine={false} tickFormatter={v=>Number(v).toLocaleString()}/>
+            <Tooltip formatter={v=>[fmt(v),ml]} contentStyle={{borderRadius:8,fontSize:12}}/>
+            <Bar dataKey={mk} radius={[4,4,0,0]}>{rowsP.map((_,i)=><Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}</Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{flex:1,minWidth:180,background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 3px rgba(0,0,0,0.07)"}}>
+        <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>Impressions %</div>
+        <ResponsiveContainer width="100%" height={200}>
+          <PieChart>
+            <Pie data={rowsP} dataKey="_pct" nameKey="_lbl" cx="50%" cy="50%" outerRadius={75} label={({name,value})=>value>5?`${name}: ${value}%`:""} fontSize={10}>
+              {rowsP.map((_,i)=><Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}
+            </Pie>
+            <Tooltip formatter={v=>[`${v}%`,"Impressions %"]}/>
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function AdTable({ rows, baseCols, kpiKey, kpiLabel }) {
+  const fmtMap = {};
+  rows.forEach(r=>{
+    const f=parseFormat(r.name);
+    if(!fmtMap[f]) fmtMap[f]={format:f,impressions:0,[kpiKey]:0};
+    fmtMap[f].impressions+=Number(r.impressions||0);
+    fmtMap[f][kpiKey]=(fmtMap[f][kpiKey]||0)+Number(r[kpiKey]||0);
+  });
+  const fmtData = Object.values(fmtMap);
+  const fv2 = (col,val) => {
+    if(val===null||val===undefined||val==="") return "—";
+    if(PCT_COLS.has(col)) return fmtP(val);
+    if(col==="frequency") return Number(val).toFixed(2);
+    if(TEXT_COLS.has(col)) return String(val);
+    return fmt(val);
+  };
+  return (
+    <div>
+      {fmtData.length>0&&(
+        <div style={{background:"#fff",borderRadius:12,padding:16,marginBottom:14,boxShadow:"0 1px 3px rgba(0,0,0,0.07)"}}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>Format — {kpiLabel}</div>
+          <ResponsiveContainer width="100%" height={140}>
+            <BarChart data={fmtData} margin={{top:4,right:8,left:0,bottom:0}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
+              <XAxis dataKey="format" tick={{fontSize:11,fill:"#6b7280"}} tickLine={false}/>
+              <YAxis tick={{fontSize:10,fill:"#9ca3af"}} tickLine={false} axisLine={false} tickFormatter={v=>Number(v).toLocaleString()}/>
+              <Tooltip formatter={v=>[fmt(v),kpiLabel]} contentStyle={{borderRadius:8,fontSize:12}}/>
+              <Bar dataKey={kpiKey} radius={[4,4,0,0]}>{fmtData.map((_,i)=><Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}</Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 3px rgba(0,0,0,0.07)"}}>
+        <div style={{fontSize:13,fontWeight:700,marginBottom:4}}>Ad Performance</div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+            <thead><tr style={{borderBottom:"2px solid #f3f4f6"}}>
+              <th style={{padding:"5px 8px",textAlign:"left",color:"#6b7280",fontWeight:700,fontSize:9,textTransform:"uppercase"}}>Format</th>
+              <th style={{padding:"5px 8px",textAlign:"left",color:"#6b7280",fontWeight:700,fontSize:9,textTransform:"uppercase"}}>Ad Name</th>
+              {baseCols.map(c=><th key={c} style={{padding:"5px 8px",textAlign:"right",color:"#6b7280",fontWeight:700,fontSize:9,textTransform:"uppercase",whiteSpace:"nowrap"}}>{COL_LABELS[c]||c}</th>)}
+            </tr></thead>
+            <tbody>{rows.map((row,i)=>(
+              <tr key={i} style={{borderBottom:"1px solid #f9fafb",background:i%2===0?"#fff":"#fafafa"}}>
+                <td style={{padding:"7px 8px",whiteSpace:"nowrap"}}>
+                  <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:99,background:PIE_COLORS[i%PIE_COLORS.length]+"22",color:PIE_COLORS[i%PIE_COLORS.length]}}>{parseFormat(row.name)}</span>
+                </td>
+                <td style={{padding:"7px 8px",fontWeight:600,color:"#111827",maxWidth:240,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={parseAdName(row.name)}>{parseAdName(row.name)}</td>
+                {baseCols.map(c=><td key={c} style={{padding:"7px 8px",textAlign:"right",color:"#374151",whiteSpace:"nowrap"}}>{fv2(c,row[c])}</td>)}
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+function Dashboard() {
+  const [platform,setPlatform] = useState("meta");
+  const [metaType,setMetaType] = useState("reach");
+  const [section,setSection]   = useState("overview");
+
+  const key      = platform==="meta"?`meta_${metaType}`:platform;
+  const d        = DATA[key]||{};
+  const s        = d.summary||{};
+  const pc       = PLAT_CFG[platform]?.color||"#6366f1";
+  const sections = platform==="meta"?SECTIONS_META:platform==="youtube"?SECTIONS_YT:SECTIONS_TT;
+  const baseCols = TYPE_COLS[key]||[];
+
+  const getKpiKey   = () => platform==="tiktok"?"view_6s":platform==="youtube"?"trueview_views":metaType==="reach"?"reach":metaType==="engagement"?"engagement":"thruplays";
+  const getKpiLabel = () => platform==="tiktok"?"6s Views":platform==="youtube"?"TrueView":metaType==="reach"?"Reach":metaType==="engagement"?"Engagement":"ThruPlays";
+
+  function getKpis() {
+    if (platform==="meta") {
+      if (metaType==="reach") return [
+        {label:"Reach (Total)",value:fmt(s.reach),      color:"#1877f2",big:true},
+        {label:"Impressions",  value:fmt(s.impressions), color:"#6366f1"},
+        {label:"Frequency",    value:s.frequency?.toFixed(2)||"—",color:"#8b5cf6"},
+        {label:"Clicks",       value:fmt(s.link_clicks), color:"#3b82f6"},
+        {label:"CTR",          value:fmtP(s.ctr),        color:"#10b981"},
+        {label:"ThruPlays",    value:fmt(s.thruplays),   color:"#f59e0b"},
+        {label:"Post Eng.",    value:fmt(s.post_engagements),color:"#ec4899"},
+        {label:"Reactions",    value:fmt(s.reactions),   color:"#ef4444"},
+        {label:"Comments",     value:fmt(s.comments),    color:"#06b6d4"},
+        {label:"Saves",        value:fmt(s.saves),       color:"#8b5cf6"},
+        {label:"Shares",       value:fmt(s.shares),      color:"#f59e0b"},
+      ];
+      if (metaType==="engagement") return [
+        {label:"Engagement",   value:fmt(s.engagement),       color:"#42b72a",big:true},
+        {label:"Impressions",  value:fmt(s.impressions),      color:"#6366f1"},
+        {label:"Reach",        value:fmt(s.reach),            color:"#1877f2"},
+        {label:"Frequency",    value:s.frequency?.toFixed(2)||"—",color:"#8b5cf6"},
+        {label:"ER",           value:fmtP(s.engagement_rate), color:"#42b72a"},
+        {label:"Clicks",       value:fmt(s.link_clicks),      color:"#3b82f6"},
+        {label:"CTR",          value:fmtP(s.ctr),             color:"#10b981"},
+        {label:"Reactions",    value:fmt(s.reactions),        color:"#f59e0b"},
+        {label:"Comments",     value:fmt(s.comments),         color:"#06b6d4"},
+        {label:"Saves",        value:fmt(s.saves),            color:"#8b5cf6"},
+        {label:"Shares",       value:fmt(s.shares),           color:"#ec4899"},
+      ];
+      return [
+        {label:"ThruPlays",  value:fmt(s.thruplays),  color:"#f02849",big:true},
+        {label:"Impressions",value:fmt(s.impressions), color:"#6366f1"},
+        {label:"Reach",      value:fmt(s.reach),       color:"#1877f2"},
+        {label:"Frequency",  value:s.frequency?.toFixed(2)||"—",color:"#8b5cf6"},
+        {label:"View Rate",  value:fmtP(s.view_rate),  color:"#10b981"},
+        {label:"Clicks",     value:fmt(s.link_clicks), color:"#3b82f6"},
+        {label:"CTR",        value:fmtP(s.ctr),        color:"#06b6d4"},
+        {label:"Reactions",  value:fmt(s.reactions),   color:"#f59e0b"},
+        {label:"Comments",   value:fmt(s.comments),    color:"#8b5cf6"},
+        {label:"Saves",      value:fmt(s.saves),       color:"#ec4899"},
+        {label:"Shares",     value:fmt(s.shares),      color:"#ef4444"},
+      ];
+    }
+    if (platform==="youtube") return [
+      {label:"TrueView Views",value:fmt(s.trueview_views),  color:"#ff0000",big:true},
+      {label:"Impressions",   value:fmt(s.impressions),     color:"#6366f1"},
+      {label:"TrueView Rate", value:fmtP(s.trueview_rate),  color:"#10b981"},
+      {label:"Clicks",        value:fmt(s.link_clicks),     color:"#3b82f6"},
+      {label:"CTR",           value:fmtP(s.ctr),            color:"#8b5cf6"},
+      {label:"Interactions",  value:fmt(s.interactions),    color:"#f59e0b"},
+      {label:"Int. Rate",     value:fmtP(s.interaction_rate),color:"#ec4899"},
+      {label:"Engagement",    value:fmt(s.engagement),      color:"#42b72a"},
+      {label:"Eng. Rate",     value:fmtP(s.engagement_rate),color:"#06b6d4"},
+    ];
+    return [
+      {label:"6s Views",      value:fmt(s.view_6s),             color:"#010101",big:true},
+      {label:"Impressions",   value:fmt(s.impressions),         color:"#6366f1"},
+      {label:"Reach",         value:fmt(s.reach),               color:"#3b82f6"},
+      {label:"Frequency",     value:s.frequency?.toFixed(2)||"—",color:"#8b5cf6"},
+      {label:"6s View Rate",  value:fmtP(s.view_rate),          color:"#10b981"},
+      {label:"Clicks (all)",  value:fmt(s.link_clicks),         color:"#f59e0b"},
+      {label:"CTR (all)",     value:fmtP(s.ctr),                color:"#ec4899"},
+      {label:"Paid Follows",  value:fmt(s.paid_follows),        color:"#42b72a"},
+      {label:"Paid Likes",    value:fmt(s.paid_likes),          color:"#ef4444"},
+      {label:"Paid Comments", value:fmt(s.paid_comments),       color:"#06b6d4"},
+      {label:"Paid Shares",   value:fmt(s.paid_shares),         color:"#f02849"},
+      {label:"Profile Visits",value:fmt(s.paid_profile_visits), color:"#a855f7"},
+    ];
+  }
+
+  function renderOverview() {
+    const campInfo = d.campaigns?.[0];
+    return (
+      <div>
+        {campInfo&&<div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:8,padding:"6px 12px",marginBottom:12,fontSize:12,color:"#1e40af"}}><b>Campaign:</b> {campInfo.name}</div>}
+        <div style={{display:"flex",flexWrap:"wrap",gap:10,marginBottom:16}}>{getKpis().map(k=><KpiCard key={k.label} {...k}/>)}</div>
+        <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 3px rgba(0,0,0,0.07)"}}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>Campaign Breakdown</div>
+          <DataTable rows={d.campaigns||[]} cols={["name","status",...baseCols]}/>
+        </div>
+      </div>
+    );
+  }
+
+  function renderTA() {
+    const rows = platform==="tiktok"?d.ad_groups:d.ad_sets;
+    return (
+      <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 3px rgba(0,0,0,0.07)"}}>
+        <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>Ad Groups / Target Audience</div>
+        <DataTable rows={rows||[]} cols={["name",...baseCols]}/>
+      </div>
+    );
+  }
+
+  function renderTakeaway() {
+    const ins=d.key_takeaways||[];
+    const icons=["💡","📈","⚠️","🎯","✨"];
+    const bgs=["#f0f9ff","#f0fdf4","#fffbeb","#fdf4ff","#fff1f2"];
+    const borders=["#3b82f6","#10b981","#f59e0b","#8b5cf6","#ef4444"];
+    return (
+      <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 3px rgba(0,0,0,0.07)"}}>
+        <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>Key Takeaways</div>
+        {ins.map((txt,i)=>(
+          <div key={i} style={{display:"flex",gap:12,marginBottom:12,padding:"12px 16px",background:bgs[i%bgs.length],borderRadius:10,borderLeft:`4px solid ${borders[i%borders.length]}`}}>
+            <span style={{fontSize:18,flexShrink:0}}>{icons[i%icons.length]}</span>
+            <p style={{margin:0,fontSize:13,color:"#374151",lineHeight:1.6}}>{txt}</p>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function renderTopic() {
+    const rows = d.topics||[];
+    const ytCols = ["impressions","interactions","interaction_rate","link_clicks","ctr","video_p25","video_p100"];
+    return (
+      <div>
+        {rows.length>0&&(
+          <div style={{background:"#fff",borderRadius:12,padding:16,marginBottom:14,boxShadow:"0 1px 3px rgba(0,0,0,0.07)"}}>
+            <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>Topic — Impressions</div>
+            <ResponsiveContainer width="100%" height={420}>
+              <BarChart data={rows} layout="vertical" margin={{top:0,right:20,left:0,bottom:0}}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false}/>
+                <XAxis type="number" tick={{fontSize:10,fill:"#9ca3af"}} tickFormatter={v=>Number(v).toLocaleString()}/>
+                <YAxis type="category" dataKey="name" tick={{fontSize:10,fill:"#374151"}} width={230} tickLine={false}/>
+                <Tooltip formatter={v=>[fmt(v),"Impressions"]} contentStyle={{borderRadius:8,fontSize:12}}/>
+                <Bar dataKey="impressions" radius={[0,4,4,0]}>{rows.map((_,i)=><Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}</Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 3px rgba(0,0,0,0.07)"}}>
+          <DataTable rows={rows} cols={["name",...ytCols]}/>
+        </div>
+      </div>
+    );
+  }
+
+  function renderSection() {
+    if (section==="overview")  return renderOverview();
+    if (section==="ta")        return renderTA();
+    if (section==="creative")  return <AdTable rows={d.creatives||[]} baseCols={baseCols} kpiKey={getKpiKey()} kpiLabel={getKpiLabel()}/>;
+    if (section==="ad_name")   return <AdTable rows={d.ads||[]}       baseCols={baseCols} kpiKey={getKpiKey()} kpiLabel={getKpiLabel()}/>;
+    if (section==="topic")     return renderTopic();
+    if (section==="age")       return <DemoChart d={d} platform={platform} metaType={metaType} dimKey="age"/>;
+    if (section==="gender")    return <DemoChart d={d} platform={platform} metaType={metaType} dimKey="gender"/>;
+    if (section==="takeaway")  return renderTakeaway();
+    return null;
+  }
+
+  return (
+    <div style={{minHeight:"100vh",background:"#f9fafb",fontFamily:"'Inter',system-ui,sans-serif",padding:"14px"}}>
+      <div style={{marginBottom:14}}>
+        <h1 style={{margin:"0 0 2px",fontSize:17,fontWeight:800,color:"#111827"}}>📊 Marketing Dashboard</h1>
+        <p style={{margin:0,fontSize:11,color:"#6b7280"}}>{d.account_name||"—"} · {d.date_range||"—"}</p>
+      </div>
+
+      {/* Platform tabs */}
+      <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+        {Object.entries(PLAT_CFG).map(([k,p])=>(
+          <button key={k} onClick={()=>{setPlatform(k);setSection("overview");}}
+            style={{padding:"7px 16px",background:platform===k?p.color:"#fff",color:platform===k?"#fff":"#6b7280",border:`1px solid ${platform===k?p.color:"#e5e7eb"}`,borderRadius:9,fontSize:13,fontWeight:700}}>
+            {p.icon} {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Meta type tabs */}
+      {platform==="meta"&&(
+        <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+          {Object.entries(META_TYPES).map(([k,t])=>(
+            <button key={k} onClick={()=>{setMetaType(k);setSection("overview");}}
+              style={{padding:"6px 14px",background:metaType===k?t.color+"18":"transparent",color:metaType===k?t.color:"#6b7280",border:`1.5px solid ${metaType===k?t.color:"#e5e7eb"}`,borderRadius:8,fontSize:12,fontWeight:700}}>
+              {t.icon} {t.label} <span style={{fontSize:10,opacity:0.7}}>· {t.kpiLabel}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Section tabs */}
+      <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:14}}>
+        {sections.map(s2=>(
+          <button key={s2} onClick={()=>setSection(s2)}
+            style={{padding:"5px 13px",background:section===s2?"#111827":"#fff",color:section===s2?"#fff":"#6b7280",border:"1px solid #e5e7eb",borderRadius:8,fontSize:12,fontWeight:600}}>
+            {SEC_LABEL[s2]}
+          </button>
+        ))}
+      </div>
+
+      {renderSection()}
+
+      <p style={{textAlign:"center",marginTop:14,fontSize:10,color:"#d1d5db"}}>
+        ANmaison · {PLAT_CFG[platform]?.label}{platform==="meta"?" · "+META_TYPES[metaType].label:""}
+      </p>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Dashboard />);
+</script>
+</body>
+</html>
